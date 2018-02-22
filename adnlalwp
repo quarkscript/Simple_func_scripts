@@ -1,0 +1,25 @@
+#!/bin/bash
+## add new line after line with part
+## use: adnlalwp "file" "part of line" "new line after previous line" "not contained part of previous line"
+## "not contained part of previous line" is optional
+## probably forbidden symbols are " ' /
+if [ -z "$4" ]
+    then 
+    lnl=$(grep -n "$2" "$1"  | sed -e 's/:.*//g')
+else
+    lnl=$(grep -n "$2" "$1" | grep -v "$4" | sed -e 's/:.*//g')
+fi
+echo file $1
+line_shift=0
+echo $lnl
+    for lnfl in $lnl; do
+        l_nm=$(($lnfl+$line_shift))
+        head -n $(($l_nm)) $1 >$1.tmp
+        echo $3 >>$1.tmp
+        tail -n +$(($l_nm+1)) $1 >>$1.tmp
+        rm -f $1
+        cp -f $1.tmp $1
+        rm -f $1.tmp
+        echo line No $(($l_nm+1)) was add
+        line_shift=$(($line_shift+1))
+    done

@@ -1,0 +1,18 @@
+#!/bin/bash
+## mod component of line in file
+## use: mcolif "file" "part of line, contained old part" "old part of line" "new part of line"
+## probably forbidden symbols are " ' /
+echo file $1
+lnl=$(grep -n "$2" "$1" | grep "$3" | sed -e 's/:.*//g')
+# lnl=$(grep -n "$2" "$1" | grep -n "$3" "$1" | sed -e 's/:.*//g')
+echo $lnl
+    for l_n in $lnl; do
+        head -n $(($l_n-1)) $1 >$1.tmp
+        head -n $(($l_n)) $1 >wrk.tmp
+        tail -n 1 wrk.tmp | sed -e "s/$3/$4/g" >>$1.tmp
+        tail -n +$(($l_n+1)) $1 >>$1.tmp
+        rm -f $1 wrk.tmp
+        cp -f $1.tmp $1
+        rm -f $1.tmp
+        echo line No $l_n was processed
+    done

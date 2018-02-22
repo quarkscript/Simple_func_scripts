@@ -1,0 +1,343 @@
+#!/bin/bash
+## Try to unificate optimizations
+## for any source code
+## Req: grep, gcc, sed, lscpu, hash,
+## Use: ./cxx_flags
+
+if ! (hash gcc 2>/dev/null)
+    then
+    echo -------------------
+    echo gcc not found, exit
+    echo -------------------
+else
+    LANG=C gcc -march=native -v -Q --help=target >/tmp/hw_test.txt
+    echo
+    cxxflags=" "
+    grep enabled /tmp/hw_test.txt > /tmp/capabilities.txt
+    for i in core2 nehalem westmere silvermont sandybridge ivybridge haswell broadwell skylake k8-sse3 amdfam10 barcelona btver1 bdver1 bdver2 bdver3 btver2
+        do
+            if (grep $i /tmp/hw_test.txt -q) 
+                then
+                cxxflags+="-march=$i -mtune=$i "
+                arrch=$i
+        fi  
+    done
+    for i in maes mclflushopt mcrc32 mcx16 mfsgsbase mfxsr mlwp mlzcnt mmovbe mpclmul msahf msha mtbm mxsave mxsavec mxsaveopt mxsaves mxop mfma
+        do
+            if (grep $i /tmp/capabilities.txt -q) 
+                then
+                cxxflags+="-$i "
+            fi
+    done
+    if (grep mavx /tmp/capabilities.txt -q) 
+        then
+        cxxflags+="-mavx "
+        if (grep mavx2 /tmp/capabilities.txt -q) 
+            then
+            cxxflags+="-mavx2 "
+        fi
+    elif (grep msse2 /tmp/capabilities.txt -q) 
+        then
+        cxxflags+="-msse2 "
+        for i in msse3 mssse3 msse4.1 msse4.a msse4.2
+            do
+                if (grep $i /tmp/capabilities.txt -q) 
+                    then
+                    cxxflags+="-$i "
+                fi  
+         done
+         cxxflags+="-mno-mmx " # disable mmx, mix mmx with sse can leads to degradate perf
+    fi
+    if ! (hash lscpu 2>/dev/null)
+        then
+        echo ------------------------------
+        echo lscpu is not found
+        echo L1d and L2 cache sizes ignored
+        echo ------------------------------
+    else
+        l1=$(LANG=C lscpu | grep L1d | sed -e 's/L1d.cache:.//' | sed -e 's/ //g' | sed -e 's/K//g')
+        l2=$(LANG=C lscpu | grep L2 | sed -e 's/L2.cache:.//' | sed -e 's/ //g' | sed -e 's/K//g')
+        cxxflags+="--param l1-cache-size=$l1 "
+        cxxflags+="--param l2-cache-size=$l2 "
+    fi
+    if [ ! -e "/proc/cpuinfo" ]
+        then
+        echo
+        echo /proc/cpuinfo not found
+        echo L1 cache alignment ignored
+        echo
+    else
+        c_line=$(grep cache_alignment /proc/cpuinfo -m 1 | sed -e 's/cache_alignment.:.//g')
+        cxxflags+="--param l1-cache-line-size=$c_line "
+    fi
+    
+    # set additional opt
+    for i in mstv #mvzeroupper mtls-direct-seg-refs mpush-args
+        do
+            if (grep $i /tmp/capabilities.txt -q) 
+                then
+                cxxflags+="-$i "
+            fi
+    done
+    
+##################### 
+#custom optimizations
+    cxxflags+="-fno-strict-aliasing "
+#     cxxflags+="-O<number>  " #                 Set optimization level to <number>.
+#     cxxflags+="-Ofast " #                      Optimize for speed disregarding exact standards compliance.
+#     cxxflags+="-Og " #                         Optimize for debugging experience rather than speed or size.
+#     cxxflags+="-Os " #                         Optimize for space rather than speed.
+#     cxxflags+="-faggressive-loop-optimizations " # Aggressively optimize loops using language constraints.
+#     cxxflags+="-falign-functions " #           Align the start of functions.
+#     cxxflags+="-falign-jumps " #               Align labels which are only reached by jumping.
+#     cxxflags+="-falign-labels " #              Align all labels.
+#     cxxflags+="-falign-loops " #               Align the start of loops.
+#     cxxflags+="-fassociative-math " #          Allow optimization for floating-point arithmetic which may change the result of the operation due to rounding.
+#     cxxflags+="-fasynchronous-unwind-tables " # Generate unwind tables that are exact at each instruction boundary.
+#     cxxflags+="-fauto-inc-dec " #              Generate auto-inc/dec instructions.
+#     cxxflags+="-fbranch-count-reg " #          Replace add, compare, branch with branch on count register.
+    cxxflags+="-fbranch-probabilities " #      Use profiling information for branch probabilities.
+#     cxxflags+="-fbranch-target-load-optimize " # Perform branch target load optimization before prologue / epilogue threading.
+#     cxxflags+="-fbranch-target-load-optimize2 " # Perform branch target load optimization after prologue / epilogue threading.
+#     cxxflags+="-fbtr-bb-exclusive " #          Restrict target load migration not to re-use registers in any basic block.
+#     cxxflags+="-fcaller-saves " #              Save registers around function calls.
+#     cxxflags+="-fcode-hoisting " #             Увімкнути підняття коду.
+    cxxflags+="-fcombine-stack-adjustments " # Looks for opportunities to reduce stack adjustments and stack references.
+#     cxxflags+="-fcompare-elim " #              Perform comparison elimination after register allocation has finished.
+#     cxxflags+="-fconserve-stack " #            Do not perform optimizations increasing noticeably stack usage.
+    cxxflags+="-fcprop-registers " #           Perform a register copy-propagation optimization pass.
+    cxxflags+="-fcrossjumping " #              Perform cross-jumping optimization.
+#     cxxflags+="-fcse-follow-jumps " #          When running CSE, follow jumps to their targets.
+#     cxxflags+="-fcx-fortran-rules " #          Complex multiplication and division follow Fortran rules.
+#     cxxflags+="-fcx-limited-range " #          Omit range reduction step when performing complex division.
+#     cxxflags+="-fdce " #                       Use the RTL dead code elimination pass.
+#     cxxflags+="-fdefer-pop " #                 Defer popping functions args from stack until later.
+#     cxxflags+="-fdelayed-branch " #            Attempt to fill delay slots of branch instructions.
+#     cxxflags+="-fdelete-dead-exceptions " #    Delete dead instructions that may throw exceptions.
+#     cxxflags+="-fdelete-null-pointer-checks " # Delete useless null pointer checks.
+#     cxxflags+="-fdevirtualize " #              Try to convert virtual calls to direct ones.
+#     cxxflags+="-fdevirtualize-speculatively " # Perform speculative devirtualization.
+#     cxxflags+="-fdse " #                       Use the RTL dead store elimination pass.
+#     cxxflags+="-fearly-inlining " #            Perform early inlining.
+#     cxxflags+="-fexceptions " #                Enable exception handling.
+#     cxxflags+="-fexpensive-optimizations " #   Perform a number of minor, expensive optimizations.
+#     cxxflags+="-ffast-math " #                 Цей перемикач не документовано.
+#     cxxflags+="-ffinite-math-only " #          Assume no NaNs or infinities are generated.
+#     cxxflags+="-ffloat-store " #               Don't allocate floats and doubles in extended-precision registers.
+#     cxxflags+="-fforward-propagate " #         Perform a forward propagation pass on RTL.
+#     cxxflags+="-ffp-contract=[off|on|fast] " # Perform floating-point expression contraction.
+#     cxxflags+="-ffp-int-builtin-inexact " #    Allow built-in functions ceil, floor, round, trunc to raise "inexact" exceptions.
+#     cxxflags+="-ffunction-cse " #              Allow function addresses to be held in registers.
+#     cxxflags+="-fgcse " #                      Perform global common subexpression elimination.
+#     cxxflags+="-fgcse-after-reload " #         Perform global common subexpression elimination after register allocation has finished.
+#     cxxflags+="-fgcse-las " #                  Perform redundant load after store elimination in global common subexpression elimination.
+#     cxxflags+="-fgcse-lm " #                   Perform enhanced load motion during global common subexpression elimination.
+#     cxxflags+="-fgcse-sm " #                   Perform store motion after global common subexpression elimination.
+#     cxxflags+="-fgraphite " #                  Enable in and out of Graphite representation.
+#     cxxflags+="-fgraphite-identity " #         Enable Graphite Identity transformation.
+    cxxflags+="-fguess-branch-probability " #  Enable guessing of branch probabilities.
+#     cxxflags+="-fhandle-exceptions " #         Same as -fexceptions.  Use the latter option instead.  Uses of this option are diagnosed.
+#     cxxflags+="-fhoist-adjacent-loads " #      Enable hoisting adjacent loads to encourage generating conditional move instructions.
+#     cxxflags+="-fif-conversion " #             Perform conversion of conditional jumps to branchless equivalents.
+#     cxxflags+="-fif-conversion2 " #            Perform conversion of conditional jumps to conditional execution.
+#     cxxflags+="-findirect-inlining " #         Perform indirect inlining.
+#     cxxflags+="-finline " #                    Enable inlining of function declared "inline", disabling disables all inlining.
+#     cxxflags+="-finline-atomics " #            Inline __atomic operations when a lock free instruction sequence is available.
+    cxxflags+="-finline-functions " #          Integrate functions not declared "inline" into their callers when profitable.
+#     cxxflags+="-finline-functions-called-once " # Integrate functions only required by their single caller.
+#     cxxflags+="-finline-small-functions " #    Integrate functions into their callers when code size is known not to grow.
+#     cxxflags+="-fipa-bit-cp " #                Perform interprocedural bitwise constant propagation.
+#     cxxflags+="-fipa-cp " #                    Perform interprocedural constant propagation.
+#     cxxflags+="-fipa-cp-clone " #              Perform cloning to make Interprocedural constant propagation stronger.
+#     cxxflags+="-fipa-icf " #                   Perform Identical Code Folding for functions and read-only variables.
+#     cxxflags+="-fipa-icf-functions " #         Perform Identical Code Folding for functions.
+#     cxxflags+="-fipa-icf-variables " #         Perform Identical Code Folding for variables.
+#     cxxflags+="-fipa-profile " #               Perform interprocedural profile propagation.
+#     cxxflags+="-fipa-pta " #                   Perform interprocedural points-to analysis.
+#     cxxflags+="-fipa-pure-const " #            Discover pure and const functions.
+#     cxxflags+="-fipa-ra " #                    Use caller save register across calls if possible.
+#     cxxflags+="-fipa-reference " #             Discover readonly and non addressable static variables.
+#     cxxflags+="-fipa-sra " #                   Perform interprocedural reduction of aggregates.
+#     cxxflags+="-fipa-vrp " #                   Perform IPA Value Range Propagation.
+#     cxxflags+="-fira-algorithm=[CB|priority] " # Set the used IRA algorithm.
+#     cxxflags+="-fira-hoist-pressure " #        Use IRA based register pressure calculation in RTL hoist optimizations.
+#     cxxflags+="-fira-loop-pressure " #         Use IRA based register pressure calculation in RTL loop optimizations.
+#     cxxflags+="-fira-region=[one|all|mixed] " # Set regions for IRA.
+#     cxxflags+="-fira-share-save-slots " #      Share slots for saving different hard registers.
+#     cxxflags+="-fira-share-spill-slots " #     Share stack slots for spilled pseudo-registers.
+#     cxxflags+="-fisolate-erroneous-paths-attribute " # Detect paths that trigger erroneous or undefined
+#                                                 #behavior due to a null value being used in a way forbidden by a
+#                                                 #returns_nonnull or nonnull attribute.  Isolate those paths from
+#                                                 #the main control flow and turn the statement with erroneous or
+#                                                 #undefined behavior into a trap.
+#     cxxflags+="-fisolate-erroneous-paths-dereference " # Detect paths that trigger erroneous or undefined
+#                                                 #behavior due to dereferencing a null pointer.  Isolate those
+#                                                 #paths from the main control flow and turn the statement with
+#                                                 #erroneous or undefined behavior into a trap.
+    cxxflags+="-fivopts " #                    Optimize induction variables on trees.
+#     cxxflags+="-fjump-tables " #               Use jump tables for sufficiently large switch statements.
+#     cxxflags+="-fkeep-gc-roots-live " #        Цей перемикач не документовано.
+#     cxxflags+="-flifetime-dse " #              Tell DSE that the storage for a C++ object is dead when the constructor starts and when the destructor finishes.
+#     cxxflags+="-flifetime-dse= " #             Цей перемикач не документовано.
+#     cxxflags+="-flimit-function-alignment " #  Цей перемикач не документовано.
+#     cxxflags+="-flive-range-shrinkage " #      Relief of register pressure through live range shrinkage.
+    cxxflags+="-floop-nest-optimize " #        Enable the loop nest optimizer.
+#     cxxflags+="-floop-parallelize-all " #      Mark all loops as parallel.
+#     cxxflags+="-flra-remat " #                 Do CFG-sensitive rematerialization in LRA.
+#     cxxflags+="-fmath-errno " #                Set errno after built-in math functions.
+#     cxxflags+="-fmodulo-sched " #              Perform SMS based modulo scheduling before the first scheduling pass.
+#     cxxflags+="-fmodulo-sched-allow-regmoves " # Perform SMS based modulo scheduling with register moves allowed.
+#     cxxflags+="-fmove-loop-invariants " #      Move loop invariant computations out of loops.
+#     cxxflags+="-fnon-call-exceptions " #       Support synchronous non-call exceptions.
+#     cxxflags+="-fnothrow-opt " #               Treat a throw() exception specification as noexcept to improve code size.
+    cxxflags+="-fomit-frame-pointer " #        When possible do not generate stack frames.
+#     cxxflags+="-fopt-info " #                  Enable all optimization info dumps on stderr.
+    cxxflags+="-foptimize-sibling-calls " #    Optimize sibling and tail recursive calls.
+#     cxxflags+="-foptimize-strlen " #           Enable string length optimizations on trees.
+#     cxxflags+="-fpack-struct " #               Pack structure members together without holes.
+#     cxxflags+="-fpack-struct=<number> " #      Set initial maximum structure member alignment.
+#     cxxflags+="-fpartial-inlining " #          Perform partial inlining.
+#     cxxflags+="-fpeel-loops " #                Perform loop peeling.
+#     cxxflags+="-fpeephole " #                  Enable machine specific peephole optimizations.
+#     cxxflags+="-fpeephole2 " #                 Enable an RTL peephole pass before sched2.
+#     cxxflags+="-fplt " #                       Use PLT for PIC calls (-fno-plt: load the address from GOT at call site).
+    cxxflags+="-fpredictive-commoning " #      Run predictive commoning optimization.
+    cxxflags+="-fprefetch-loop-arrays " #      Generate prefetch instructions, if available, for arrays in loops.
+#     cxxflags+="-fprintf-return-value " #       Treat known sprintf return values as constants.
+#     cxxflags+="-freciprocal-math " #           Same as -fassociative-math for expressions which include division.
+#     cxxflags+="-freg-struct-return " #         Return small aggregates in registers.
+#     cxxflags+="-frename-registers " #          Perform a register renaming optimization pass.
+#     cxxflags+="-freorder-blocks " #            Reorder basic blocks to improve code placement.
+#     cxxflags+="-freorder-blocks-algorithm=[simple|stc] " # Set the used basic block reordering algorithm.
+#     cxxflags+="-freorder-blocks-and-partition " # Reorder basic blocks and partition into hot and cold sections.
+#     cxxflags+="-freorder-functions " #         Reorder functions to improve code placement.
+#     cxxflags+="-frerun-cse-after-loop " #      Add a common subexpression elimination pass after loop optimizations.
+#     cxxflags+="-freschedule-modulo-scheduled-loops " # Enable/Disable the traditional scheduling in loops that already passed modulo scheduling.
+#     cxxflags+="-frounding-math  " #            Disable optimizations that assume default FP rounding behavior.
+#     cxxflags+="-frtti " #                      Generate run time type descriptor information.
+#     cxxflags+="-fsched-critical-path-heuristic " # Enable the critical path heuristic in the scheduler.
+#     cxxflags+="-fsched-dep-count-heuristic " # Enable the dependent count heuristic in the scheduler.
+#     cxxflags+="-fsched-group-heuristic " #     Enable the group heuristic in the scheduler.
+#     cxxflags+="-fsched-interblock " #          Enable scheduling across basic blocks.
+#     cxxflags+="-fsched-last-insn-heuristic " # Enable the last instruction heuristic in the scheduler.
+#     cxxflags+="-fsched-pressure " #            Enable register pressure sensitive insn scheduling.
+#     cxxflags+="-fsched-rank-heuristic " #      Enable the rank heuristic in the scheduler.
+#     cxxflags+="-fsched-spec " #                Allow speculative motion of non-loads.
+#     cxxflags+="-fsched-spec-insn-heuristic " # Enable the speculative instruction heuristic in the scheduler.
+#     cxxflags+="-fsched-spec-load " #           Allow speculative motion of some loads.
+#     cxxflags+="-fsched-spec-load-dangerous " # Allow speculative motion of more loads.
+#     cxxflags+="-fsched-stalled-insns " #       Allow premature scheduling of queued insns.
+#     cxxflags+="-fsched-stalled-insns-dep " #   Set dependence distance checking in premature scheduling of queued insns.
+#     cxxflags+="-fsched-stalled-insns-dep=<number> " # Set dependence distance checking in premature scheduling of queued insns.
+#     cxxflags+="-fsched-stalled-insns=<number> " # Set number of queued insns that can be prematurely scheduled.
+#     cxxflags+="-fsched2-use-superblocks " #    If scheduling post reload, do superblock scheduling.
+    cxxflags+="-fschedule-fusion " #           Perform a target dependent instruction fusion optimization pass.
+#     cxxflags+="-fschedule-insns " #            Reschedule instructions before register allocation.
+#     cxxflags+="-fschedule-insns2 " #           Reschedule instructions after register allocation.
+#     cxxflags+="-fsection-anchors " #           Access data in the same section from shared anchor points.
+#     cxxflags+="-fsel-sched-pipelining " #      Perform software pipelining of inner loops during selective scheduling.
+#     cxxflags+="-fsel-sched-pipelining-outer-loops " # Perform software pipelining of outer loops during selective scheduling.
+#     cxxflags+="-fsel-sched-reschedule-pipelined " # Reschedule pipelined regions without pipelining.
+#     cxxflags+="-fselective-scheduling " #      Schedule instructions using selective scheduling algorithm.
+#     cxxflags+="-fselective-scheduling2 " #     Run selective scheduling after reload.
+#     cxxflags+="-fshort-enums " #               Use the narrowest integer type possible for enumeration types.
+#     cxxflags+="-fshort-wchar " #               Force the underlying type for "wchar_t" to be "unsigned short".
+#     cxxflags+="-fshrink-wrap " #               Emit function prologues only before parts of the function that need it, rather than at the top of the function.
+#     cxxflags+="-fshrink-wrap-separate " #      Shrink-wrap parts of the prologue and epilogue separately.
+#     cxxflags+="-fsignaling-nans " #            Disable optimizations observable by IEEE signaling NaNs.
+#     cxxflags+="-fsigned-zeros " #              Disable floating point optimizations that ignore the IEEE signedness of zero.
+#     cxxflags+="-fsimd-cost-model=[unlimited|dynamic|cheap] " # Specifies the vectorization cost model for code marked with a simd directive.
+    cxxflags+="-fsimd-cost-model=dynamic "
+#     cxxflags+="-fsingle-precision-constant " # Convert floating point constants to single precision constants.
+#     cxxflags+="-fsplit-ivs-in-unroller " #     Split lifetimes of induction variables when loops are unrolled.
+    cxxflags+="-fsplit-loops " #               Perform loop splitting.
+#     cxxflags+="-fsplit-paths " #               Split paths leading to loop backedges.
+#     cxxflags+="-fsplit-wide-types " #          Split wide types into independent registers.
+#     cxxflags+="-fssa-backprop " #              Enable backward propagation of use properties at the SSA level.
+#     cxxflags+="-fssa-phiopt " #                Optimize conditional patterns using SSA PHI nodes.
+#     cxxflags+="-fstack-protector " #           Use propolice as a stack protection method.
+#     cxxflags+="-fstack-protector-all " #       Use a stack protection method for every function.
+#     cxxflags+="-fstack-protector-explicit " #  Use stack protection method only for functions with the stack_protect attribute.
+#     cxxflags+="-fstack-protector-strong " #    Use a smart stack protection method for certain functions.
+#     cxxflags+="-fstack-reuse=[all|named_vars|none] " # Set stack reuse level for local variables.
+    cxxflags+="-fstdarg-opt " #                Optimize amount of stdarg registers saved to stack at start of function.
+#     cxxflags+="-fstore-merging " #             Merge adjacent stores.
+#     cxxflags+="-fstrict-aliasing " #           Assume strict aliasing rules apply.
+#     cxxflags+="-fstrict-enums " #              Assume that values of enumeration type are always within the minimum range of that type.
+#     cxxflags+="-fstrict-overflow " #           Treat signed overflow as undefined.
+#     cxxflags+="-fstrict-volatile-bitfields " # Force bitfield accesses to match their type width.
+#     cxxflags+="-fthread-jumps " #              Perform jump threading optimizations.
+#     cxxflags+="-fno-threadsafe-statics " #     Do not generate thread-safe code for initializing local statics.
+#     cxxflags+="-ftracer " #                    Perform superblock formation via tail duplication.
+#     cxxflags+="-ftrapping-math " #             Assume floating-point operations can trap.
+#     cxxflags+="-ftrapv " #                     Trap for signed overflow in addition, subtraction and multiplication.
+#     cxxflags+="-ftree-bit-ccp " #              Enable SSA-BIT-CCP optimization on trees.
+#     cxxflags+="-ftree-builtin-call-dce " #     Enable conditional dead code elimination for builtin calls.
+#     cxxflags+="-ftree-ccp " #                  Enable SSA-CCP optimization on trees.
+#     cxxflags+="-ftree-ch " #                   Enable loop header copying on trees.
+#     cxxflags+="-ftree-coalesce-vars " #        Enable SSA coalescing of user variables.
+#     cxxflags+="-ftree-copy-prop " #            Enable copy propagation on trees.
+#     cxxflags+="-ftree-cselim " #               Transform condition stores into unconditional ones.
+#     cxxflags+="-ftree-dce " #                  Enable SSA dead code elimination optimization on trees.
+    cxxflags+="-ftree-dominator-opts " #       Enable dominator optimizations.
+#     cxxflags+="-ftree-dse " #                  Enable dead store elimination.
+#     cxxflags+="-ftree-forwprop " #             Enable forward propagation on trees.
+#     cxxflags+="-ftree-fre " #                  Enable Full Redundancy Elimination (FRE) on trees.
+#     cxxflags+="-ftree-loop-distribute-patterns " # Enable loop distribution for patterns transformed into a library call.
+    cxxflags+="-ftree-loop-distribution " #    Enable loop distribution on trees.
+#     cxxflags+="-ftree-loop-if-convert " #      Convert conditional jumps in innermost loops to branchless equivalents.
+#     cxxflags+="-ftree-loop-im " #              Enable loop invariant motion on trees.
+#     cxxflags+="-ftree-loop-ivcanon " #         Create canonical induction variables in loops.
+    cxxflags+="-ftree-loop-optimize " #        Enable loop optimizations on tree level.
+    cxxflags+="-ftree-loop-vectorize " #       Enable loop vectorization on trees.
+#     cxxflags+="-ftree-lrs " #                  Perform live range splitting during the SSA->normal pass.
+#     cxxflags+="-ftree-parallelize-loops=<number> " # Enable automatic parallelization of loops.
+#     cxxflags+="-ftree-partial-pre " #          In SSA-PRE optimization on trees, enable partial-partial redundancy elimination.
+#     cxxflags+="-ftree-phiprop " #              Enable hoisting loads from conditional pointers.
+#     cxxflags+="-ftree-pre " #                  Enable SSA-PRE optimization on trees.
+#     cxxflags+="-ftree-pta " #                  Perform function-local points-to analysis on trees.
+#     cxxflags+="-ftree-reassoc " #              Enable reassociation on tree level.
+#     cxxflags+="-ftree-scev-cprop " #           Enable copy propagation of scalar-evolution information.
+#     cxxflags+="-ftree-sink " #                 Enable SSA code sinking on trees.
+    cxxflags+="-ftree-slp-vectorize " #        Enable basic block vectorization (SLP) on trees.
+#     cxxflags+="-ftree-slsr " #                 Perform straight-line strength reduction.
+#     cxxflags+="-ftree-sra " #                  Perform scalar replacement of aggregates.
+#     cxxflags+="-ftree-switch-conversion " #    Perform conversions of switch initializations.
+#     cxxflags+="-ftree-tail-merge " #           Enable tail merging on trees.
+#     cxxflags+="-ftree-ter " #                  Replace temporary expressions in the SSA->normal pass.
+    cxxflags+="-ftree-vectorize " #            Enable vectorization on trees.
+#     cxxflags+="-ftree-vrp " #                  Perform Value Range Propagation on trees.
+#     cxxflags+="-funconstrained-commons " #     Assume common declarations may be overridden with ones with a larger trailing array.
+#     cxxflags+="-funroll-all-loops " #          Perform loop unrolling for all loops.
+#     cxxflags+="-funroll-loops " #              Perform loop unrolling when iteration count is known.
+#     cxxflags+="-funsafe-math-optimizations " # Allow math optimizations that may violate IEEE or ISO standards.
+#     cxxflags+="-funswitch-loops " #            Perform loop unswitching.
+#     cxxflags+="-funwind-tables " #             Just generate unwind tables for exception handling.
+#     cxxflags+="-fvar-tracking " #              Perform variable tracking.
+#     cxxflags+="-fvar-tracking-assignments " #  Perform variable tracking by annotating assignments.
+#     cxxflags+="-fvar-tracking-assignments-toggle " # Toggle -fvar-tracking-assignments.
+#     cxxflags+="-fvar-tracking-uninit " #       Perform variable tracking and also tag variables that are uninitialized.
+#     cxxflags+="-fvariable-expansion-in-unroller " # Apply variable expansion when loops are unrolled.
+    cxxflags+="-fvect-cost-model=dynamic " #     -fvect-cost-model=[unlimited|dynamic|cheap] Specifies the cost model for vectorization.
+#     cxxflags+="-fvpt " #                       Use expression value profiles in optimizations.
+#     cxxflags+="-fweb " #                       Construct webs and split unrelated uses of single variable.
+#     cxxflags+="-fwrapv " #                     Assume signed arithmetic overflow wraps around.
+#####################
+  
+    
+#     if [ -z $arrch ]
+#         then
+#         echo ----------------------
+#         echo CPU type is undetected
+#         echo ----------------------
+#     else
+#         echo -----------------------------------------------------
+#         echo Compilation of source code can be better optimized to 
+#         echo CPU $(grep 'model name' /proc/cpuinfo --max-count=1)
+#         echo -----------------------------------------------------
+#     fi
+    rm -f /tmp/hw_test.txt /tmp/capabilities.txt 
+    echo " "$cxxflags > cxxflags.txt
+    #export CXXFLAGS+=$cxxflags
+fi
+
