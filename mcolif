@@ -2,6 +2,9 @@
 ## mod component of line in file
 ## use: mcolif "file" "part of line, contained old part" "old part of line" "new part of line"
 ## probably forbidden symbols are " ' /
+## Author Andrew S.
+## Licence GPL
+## https://github.com/quarkscript/Simple_func_scripts.git
 echo file $1
 lnl=$(grep -n "$2" "$1" | grep "$3" | sed -e 's/:.*//g')
 # lnl=$(grep -n "$2" "$1" | grep -n "$3" "$1" | sed -e 's/:.*//g')
