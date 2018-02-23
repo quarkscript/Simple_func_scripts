@@ -3,6 +3,9 @@
 ## for any source code
 ## Req: grep, gcc, sed, lscpu, hash,
 ## Use: ./cxx_flags
+## Author Andrew S.
+## Licence GPL
+## https://github.com/quarkscript/Simple_func_scripts.git
 
 if ! (hash gcc 2>/dev/null)
     then
