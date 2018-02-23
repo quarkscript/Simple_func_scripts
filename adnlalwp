@@ -3,6 +3,9 @@
 ## use: adnlalwp "file" "part of line" "new line after previous line" "not contained part of previous line"
 ## "not contained part of previous line" is optional
 ## probably forbidden symbols are " ' /
+## Author Andrew S.
+## Licence GPL
+## https://github.com/quarkscript/Simple_func_scripts.git
 if [ -z "$4" ]
     then 
     lnl=$(grep -n "$2" "$1"  | sed -e 's/:.*//g')
