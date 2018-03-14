@@ -13,7 +13,7 @@ if ! (hash gcc 2>/dev/null)
     echo gcc not found, exit
     echo -------------------
 else
-    LANG=C gcc -march=native -v -Q --help=target >/tmp/hw_test.txt
+    LANG=C gcc -march=native -v -Q --help=target 1>/tmp/hw_test.txt 2>/tmp/gcc_flags.tmp
     echo
     cxxflags=" "
     grep enabled /tmp/hw_test.txt > /tmp/capabilities.txt
@@ -51,27 +51,44 @@ else
          done
          cxxflags+="-mno-mmx " # disable mmx, mix mmx with sse can leads to degradate perf
     fi
-    if ! (hash lscpu 2>/dev/null)
+    if (grep l1-cache-size /tmp/gcc_flags.tmp -q) 
         then
-        echo ------------------------------
-        echo lscpu is not found
-        echo L1d and L2 cache sizes ignored
-        echo ------------------------------
+            l1=$(grep "l1-cache-size=[0-9 ][0-9 ][0-9 ][0-9 a-z-][0-9 a-z-][0-9 a-z-][0-9 a-z-]" -o /tmp/gcc_flags.tmp | sed -s 's/l1//g' | sed -s 's/[^0-9]//g')
+            cxxflags+="--param l1-cache-size=$l1 "
+    elif (hash lscpu 2>/dev/null)
+        then
+            l1=$(LANG=C lscpu | grep L1d | sed -e 's/L1d.cache:.//' | sed -e 's/ //g' | sed -e 's/K//g')
+            cxxflags+="--param l1-cache-size=$l1 "
     else
-        l1=$(LANG=C lscpu | grep L1d | sed -e 's/L1d.cache:.//' | sed -e 's/ //g' | sed -e 's/K//g')
-        l2=$(LANG=C lscpu | grep L2 | sed -e 's/L2.cache:.//' | sed -e 's/ //g' | sed -e 's/K//g')
-        cxxflags+="--param l1-cache-size=$l1 "
-        cxxflags+="--param l2-cache-size=$l2 "
+        echo ----------------------
+        echo L1d cache size ignored
+        echo ----------------------
     fi
-    if [ ! -e "/proc/cpuinfo" ]
+    if (grep l2-cache-size /tmp/gcc_flags.tmp -q) 
         then
-        echo
-        echo /proc/cpuinfo not found
-        echo L1 cache alignment ignored
-        echo
+            l2=$(grep "l2-cache-size=[0-9 ][0-9 ][0-9 ][0-9 a-z-][0-9 a-z-][0-9 a-z-][0-9 a-z-]" -o /tmp/gcc_flags.tmp | sed -s 's/l2//g' | sed -s 's/[^0-9]//g')
+            cxxflags+="--param l2-cache-size=$l2 "
+    elif (hash lscpu 2>/dev/null)
+        then
+            l2=$(LANG=C lscpu | grep L2 | sed -e 's/L2.cache:.//' | sed -e 's/ //g' | sed -e 's/K//g')
+            cxxflags+="--param l2-cache-size=$l2 "
     else
-        c_line=$(grep cache_alignment /proc/cpuinfo -m 1 | sed -e 's/cache_alignment.:.//g')
-        cxxflags+="--param l1-cache-line-size=$c_line "
+        echo ---------------------
+        echo L2 cache size ignored
+        echo ---------------------
+    fi
+    if (grep l1-cache-line-size /tmp/gcc_flags.tmp -q) 
+        then
+            c_line=$(grep "l1-cache-line-size=[0-9 ][0-9 ][0-9 ][0-9 a-z-][0-9 a-z-][0-9 a-z-][0-9 a-z-]" -o /tmp/gcc_flags.tmp | sed -s 's/l1//g' | sed -s 's/[^0-9]//g')
+            cxxflags+="--param l1-cache-line-size=$c_line "
+    elif [ -e "/proc/cpuinfo" ]
+        then
+            c_line=$(grep cache_alignment /proc/cpuinfo -m 1 | sed -e 's/cache_alignment.:.//g')
+            cxxflags+="--param l1-cache-line-size=$c_line "
+    else
+        echo --------------------------
+        echo L1 cache alignment ignored
+        echo --------------------------
     fi
     
     # set additional opt
@@ -339,7 +356,7 @@ else
 #         echo CPU $(grep 'model name' /proc/cpuinfo --max-count=1)
 #         echo -----------------------------------------------------
 #     fi
-    rm -f /tmp/hw_test.txt /tmp/capabilities.txt 
+    rm -f /tmp/hw_test.txt /tmp/capabilities.txt /tmp/gcc_flags.tmp
     echo " "$cxxflags > cxxflags.txt
     #export CXXFLAGS+=$cxxflags
 fi
