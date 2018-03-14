@@ -1,0 +1,21 @@
+#! /bin/bash
+## mod pkgbuilds and make packages from subdirs
+## work in arch linux environment
+## Author Andrew S.
+## Licence GPL
+## https://github.com/quarkscript/Simple_func_scripts.git
+
+fl="export CXXFLAGS+='"
+fl+=$(cat cxxflags.txt)
+fl+=" '"
+for i in $(ls -d */ | sed -e 's/\///g')
+    do
+        cd $i
+        ## try to force compilation flags
+        ../adnlalwp 'PKGBUILD' 'build()' "$fl"
+        ## try to force smp making 
+        ../mcolif 'PKGBUILD' ' make' ' make' " make -j$(($(grep 'model name' /proc/cpuinfo --count)+1))"
+        makepkg
+        cp *pkg.tar.xz ../
+        cd ..
+done
