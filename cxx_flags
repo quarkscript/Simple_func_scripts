@@ -35,7 +35,7 @@ else
     if (grep mavx /tmp/capabilities.txt -q) 
         then
         cxxflags+="-mavx "
-        if (grep mavx2 /tmp/capabilities.txt -q) 
+        if (grep "mavx2 " /tmp/capabilities.txt -q) 
             then
             cxxflags+="-mavx2 "
         fi
