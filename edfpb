@@ -1,0 +1,40 @@
+#!/bin/bash
+## extract depends from PKGBUILD
+## Req.: grep head tail cat
+## Use: ./edfpb "where" "mask"
+## "where" and "mask" is optional
+## Author Andrew S.
+## Licence GPL
+## https://github.com/quarkscript/Simple_func_scripts.git
+
+if [ -z "$2" ]
+    then
+        b="depends="
+    else
+        b=$2
+fi
+if [ -z "$1" ]
+    then
+        a=PKGBUILD
+    else
+        a=$1
+fi
+starts=$(cat $a | grep "$b" -no | grep -o [0-9][0-9][0-9:] | sed -e "s/://g")
+ends=$(cat $a | grep ")" -no | grep -o [0-9][0-9][0-9:] | sed -e "s/://g")
+deps=1
+for j in $starts
+    do
+        for i in $ends
+            do
+                if [ "$i" -gt "$j" ]
+                    then
+                        head -n $i $a >/tmp/dep1.tmp
+                        tail -n $(($i-$j)) /tmp/dep1.tmp >/tmp/dep2.tmp
+                        cat /tmp/dep2.tmp | sed -e 's/:.*//g' | sed -e 's/#.*//g' | sed -e "s/'//g" | sed -e "s/)//g" | sed -e "s/(//g" | sed -e 's/"//g' | sed -e "s/,//g" | sed -e "s/$b//g">deps$deps
+                        deps=$(($deps+1))
+                        rm -r /tmp/dep1.tmp /tmp/dep2.tmp                
+                        break
+                fi
+        done
+done
+

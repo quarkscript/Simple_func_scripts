@@ -1,0 +1,29 @@
+#!/bin/bash
+## remove duplucates and test packages installation
+## Req.: grep cat pacman
+## Use: ./rmdtpi "file list of packages"
+## duplicates from "file list of packages" will be removed
+## rezult will be "file list of packages".req
+## Author Andrew S.
+## Licence GPL
+## https://github.com/quarkscript/Simple_func_scripts.git
+
+## rm duplicates
+tr=""
+for i in $(cat $1)
+    do
+    if ! $(echo $tr | grep "$i" -q)
+        then
+        tr+=" "$i
+    fi
+done
+echo $tr>$1
+
+## test req packages
+req=""
+installed_list=$(pacman -Qq)
+for i in $tr
+    do
+    req+=" "$(echo $i | grep -vx "$installed_list" )
+done
+echo $req>$1.req
