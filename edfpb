@@ -9,7 +9,7 @@
 
 if [ -z "$2" ]
     then
-        b="depends="
+        b='depends='
     else
         b=$2
 fi
@@ -26,15 +26,14 @@ for j in $starts
     do
         for i in $ends
             do
-                if [ "$i" -gt "$j" ]
+                if [ "$i" -ge "$j" ]
                     then
                         head -n $i $a >/tmp/dep1.tmp
-                        tail -n $(($i-$j)) /tmp/dep1.tmp >/tmp/dep2.tmp
-                        cat /tmp/dep2.tmp | sed -e 's/:.*//g' | sed -e 's/#.*//g' | sed -e "s/'//g" | sed -e "s/)//g" | sed -e "s/(//g" | sed -e 's/"//g' | sed -e "s/,//g" | sed -e "s/$b//g">deps$deps
+                        tail -n $(($i-$j+1)) /tmp/dep1.tmp >/tmp/dep2.tmp
+                        cat /tmp/dep2.tmp | sed -e 's/:.*//g' | sed -e 's/#.*//g' | sed -e "s/'//g" | sed -e "s/)//g" | sed -e "s/(//g" | sed -e 's/"//g' | sed -e "s/,//g" | sed -e 's/.*=//g' | sed -e "s/$b//g">deps$deps
                         deps=$(($deps+1))
                         rm -r /tmp/dep1.tmp /tmp/dep2.tmp                
                         break
                 fi
         done
 done
-
