@@ -42,14 +42,16 @@ else
     elif (grep msse2 /tmp/capabilities.txt -q) 
         then
         cxxflags+="-msse2 "
-        for i in msse3 mssse3 msse4.1 msse4.a msse4.2
+        for i in msse3 mssse3 msse4.1 msse4.2
             do
                 if (grep $i /tmp/capabilities.txt -q) 
                     then
                     cxxflags+="-$i "
-                fi  
+                else
+                    cxxflags+="-"$(echo $i | sed 's/m/mno-/g')" "
+                fi
          done
-         cxxflags+="-mno-mmx " # disable mmx, mix mmx with sse can leads to degradate perf
+         cxxflags+="-mno-mmx -mno-avx -mno-avx2 " # disable mmx, avx, avx2
     fi
     if (grep l1-cache-size /tmp/gcc_flags.tmp -q) 
         then

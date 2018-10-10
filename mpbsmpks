@@ -14,6 +14,9 @@ fi
 fl="export CXXFLAGS+='"
 fl+=$(cat cxxflags.txt)
 fl+=" '"
+fl2="export CFLAGS+='"
+fl2+=$(cat cxxflags.txt)
+fl2+=" '"
 for i in $(ls -d */ | sed -e 's/\///g')
     do
         cd $i
@@ -25,6 +28,7 @@ for i in $(ls -d */ | sed -e 's/\///g')
             echo "processing $pkn $pkv-$pkr"
             echo '## try to force compilation flags'
             ../adnlalwp 'PKGBUILD' 'build()' "$fl"
+            ../adnlalwp 'PKGBUILD' 'build()' "$fl2"
             echo '## try to force smp making'
             ../mcolif 'PKGBUILD' ' make' ' make' " make -j$(($(grep 'model name' /proc/cpuinfo --count)+1))"
             makepkg
