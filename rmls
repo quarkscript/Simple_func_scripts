@@ -1,0 +1,15 @@
+#!/bin/bash
+## rmls - remove lines
+## Use: rmls 'file' 'part of removed line'
+## Author Andrew S. Licence GPL
+## https://github.com/quarkscript/Simple_func_scripts
+
+while $(grep -q "$2" "$1"); do
+    l_n=$(grep -m 1 -n "$2" "$1" | sed -e 's/:.*//g')
+    head -n $(($l_n-1)) $1 >$1.wrk
+    tail -n +$(($l_n+1)) $1 >>$1.wrk
+    rm -f $1
+    cp -f $1.wrk $1
+    rm -f $1.wrk
+    echo "Line removed"
+done 
