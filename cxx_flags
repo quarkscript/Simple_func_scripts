@@ -47,11 +47,11 @@ else
                 if (grep $i /tmp/capabilities.txt -q) 
                     then
                     cxxflags+="-$i "
-                else
-                    cxxflags+="-"$(echo $i | sed 's/m/mno-/g')" "
+#                else
+#                    cxxflags+="-"$(echo $i | sed 's/m/mno-/g')" "
                 fi
          done
-         cxxflags+="-mno-mmx -mno-avx -mno-avx2 " # disable mmx, avx, avx2
+#         cxxflags+="-mno-mmx -mno-avx -mno-avx2 " # disable mmx, avx, avx2
     fi
     if (grep l1-cache-size /tmp/gcc_flags.tmp -q) 
         then
