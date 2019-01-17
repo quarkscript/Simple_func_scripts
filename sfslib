@@ -1,8 +1,8 @@
 #!/bin/bash
 if [ -z $1 ] || [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "help" ]; then
     echo "
-Simple function scripts library. There are functions here:
-adnlalwp, edfpb, mcolif, mpbsmpks, rmdtpi, s_un_pk, cxx_flags.
+Simple function scripts library. There are:
+$(echo $(cat $0 | grep '(){' | sed 's/(.*//g' | sed 's/\$//g') | sed 's/ /, /g').
 Use: $0 func_name func_params OR $0 func_name -h 
 Author Andrew S. https://[github OR gitlab].com/quarkscript License GPL
 "; exit 0
@@ -183,7 +183,7 @@ echo $req>$1.req
 rmls(){
 if [ "$1" == "-h" ]; then echo '
 ## rmls - remove lines
-## Use: rmls "file" "part of removed line"
+## Use: ./sfslib rmls "file" "part of removed line"
 ## Author Andrew S. Licence GPL
 ## https://github.com/quarkscript/Simple_func_scripts
 '; exit 0; fi
