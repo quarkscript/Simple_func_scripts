@@ -216,6 +216,47 @@ done
 echo $list
 }
 
+skipsha(){
+if [ -z $1 ]||[ "$1" == '-h' ]; then 
+echo '## It is a part of sfslib. Purpose of this function is
+## to remove sha- checks from PKGBUILD
+## Usage ./sfslib skipsha "path to PKGBUILD"
+## Required: head tail grep sed cat echo
+## There are no any checks, so the probability of fail is high
+## Author Andrew S. License GPL'
+exit 1 ; fi
+
+for pp in $(cat $1 | grep -n sha | grep --regexp="=" | sed 's/\:.*//g'); do
+    tmpval="$pp $tmpval"
+done
+for pp in $tmpval; do
+    loffset=0
+    st=''
+    while [ -z "$st" ]; do
+        if $(cat $1 | tail -n +"$(($pp+loffset))" | head -n 1 | grep -q  --regexp=")"); then
+            st=1
+        else
+            loffset=$(($loffset+1))
+        fi
+    done
+    count_elmnts=0
+    for cld in $(cat $1 | tail -n +"$(($pp+0))" | head -n $(($loffset+1)) | sed 's/.*\=//g' | sed 's/(//g' | sed 's/)//g'); do
+        count_elmnts=$(($count_elmnts+1))
+    done
+    mkshaline=$(cat $1 | tail -n +"$pp" | head -n 1 | sed 's/\=.*//g' )
+    mkshaline+="=('SKIP'"
+    for ((mr=1;mr<$count_elmnts;mr++)); do
+        mkshaline+=" 'SKIP'"
+    done
+    mkshaline+=")"
+    tmmpfl=$(mktemp XXXXXXXXX.tmp)
+    cat $1 | head -n $(($pp-1))>$tmmpfl
+    echo $mkshaline>>$tmmpfl
+    cat $1 | tail -n +"$(($pp+$loffset+1))">>$tmmpfl
+    mv -f $tmmpfl $1
+done
+}
+
 cxx_flags(){
 if [ "$1" == "-h" ]; then echo '
 ## Try to collect possible local hardware optimization flags
