@@ -138,7 +138,7 @@ for i in $(ls -d */ | sed -e 's/\///g')
             adnlalwp 'PKGBUILD' 'build()' "$fl2"
             echo '## try to force smp making'
             #../sfslib mcolif 'PKGBUILD' ' make' ' make' " make -j$(($(grep 'model name' /proc/cpuinfo --count)+1))"
-            mcolif 'PKGBUILD' ' make' ' make' " make -j$(($(grep 'model name' /proc/cpuinfo --count)+1))"
+            mcolif 'PKGBUILD' ' make ' ' make ' " make -j$(($(grep 'model name' /proc/cpuinfo --count)+1)) "
             makepkg
             cp *pkg.tar.xz ../
         else
@@ -277,7 +277,8 @@ else
     grep enabled /tmp/hw_test.txt > /tmp/capabilities.txt
     if $(cat /tmp/hw_test.txt | grep march | grep -vq armv); then
         for i in prescott nocona core2 nehalem westmere sandybridge ivybridge haswell broadwell skylake bonnell silvermont knl knm skylake-avx512 cannonlake icelake-client icelake-server k8-sse3 opteron-sse3 athlon64-sse3 amdfam10 barcelona bdver1 bdver2 bdver3 bdver4 znver1 btver1 btver2; do
-            if (grep $i /tmp/hw_test.txt -q); then
+            #if (grep $i /tmp/hw_test.txt -q); then
+            if $(cat /tmp/hw_test.txt | grep march | grep $i -q); then
                 cxxflags+="-march=$i -mtune=$i "
                 arrch=$i
                 break
@@ -314,7 +315,7 @@ else
     # cxxflags+="-fasynchronous-unwind-tables Generate unwind tables that are exact at each instruction boundary.
     # cxxflags+="-fauto-inc-dec #  #  #  #   Generate auto-inc/dec instructions.
     # cxxflags+="-fbranch-count-reg #  #  #  Replace add, compare, branch with branch on count register.
-    cxxflags+="-fbranch-probabilities " #  # Use profiling information for branch probabilities.
+    # cxxflags+="-fbranch-probabilities " #  # Use profiling information for branch probabilities.
     # cxxflags+="-fbranch-target-load-optimize Perform branch target load optimization before prologue / epilogue
     #  #  #  #  #  #  #  #  #  # threading.
     # cxxflags+="-fbranch-target-load-optimize2 Perform branch target load optimization after prologue / epilogue
@@ -361,7 +362,7 @@ else
     # cxxflags+="-fgcse-sm #  #  #  #  #  #  Perform store motion after global common subexpression elimination.
     # cxxflags+="-fgraphite #  #  #  #  #  # Enable in and out of Graphite representation.
     # cxxflags+="-fgraphite-identity #  #  # Enable Graphite Identity transformation.
-    cxxflags+="-fguess-branch-probability " #  Enable guessing of branch probabilities.
+    # cxxflags+="-fguess-branch-probability " #  Enable guessing of branch probabilities.
     # cxxflags+="-fhandle-exceptions #  #  # Same as -fexceptions.  Use the latter option instead.  Uses of this
     #  #  #  #  #  #  #  #  #  # option are diagnosed.
     # cxxflags+="-fhoist-adjacent-loads #  # Enable hoisting adjacent loads to encourage generating conditional
@@ -371,12 +372,12 @@ else
     # cxxflags+="-findirect-inlining #  #  # Perform indirect inlining.
     # cxxflags+="-finline #  #  #  #  #  #   Enable inlining of function declared "inline", disabling disables all
     #  #  #  #  #  #  #  #  #  # inlining.
-    cxxflags+="-finline-atomics " #  #  #  # Inline __atomic operations when a lock free instruction sequence is
+    # cxxflags+="-finline-atomics " #  #  #  # Inline __atomic operations when a lock free instruction sequence is
     #  #  #  #  #  #  #  #  #  # available.
-    cxxflags+="-finline-functions " #  #  #  Integrate functions not declared "inline" into their callers when
+    # cxxflags+="-finline-functions " #  #  #  Integrate functions not declared "inline" into their callers when
     #  #  #  #  #  #  #  #  #  # profitable.
     # cxxflags+="-finline-functions-called-once Integrate functions only required by their single caller.
-    cxxflags+="-finline-small-functions " #  Integrate functions into their callers when code size is known not to
+    # cxxflags+="-finline-small-functions " #  Integrate functions into their callers when code size is known not to
     #  #  #  #  #  #  #  #  #  # grow.
     # cxxflags+="-fipa-bit-cp #  #  #  #  #  Perform interprocedural bitwise constant propagation.
     # cxxflags+="-fipa-cp #  #  #  #  #  #   Perform interprocedural constant propagation.
