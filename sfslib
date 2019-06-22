@@ -25,9 +25,9 @@ if [ -z "$4" ]
 else
     lnl=$(grep -n "$2" "$1" | grep -v "$4" | sed -e 's/:.*//g')
 fi
-echo file $1
+echo "file $1"
 line_shift=0
-echo $lnl
+#echo $lnl
     for lnfl in $lnl; do
         l_nm=$(($lnfl+$line_shift))
         head -n $(($l_nm)) $1 >$1.tmp
@@ -45,7 +45,7 @@ edfpb(){
 if [ "$1" == "-h" ]; then echo '
 ## extract depends from PKGBUILD
 ## Req.: grep head tail cat
-## Use: ./sfslib edfpb "where" "mask"
+## Use: ./sfslib edfpb "where" "mask" "not contain"
 ## "where" and "mask" is optional
 ## Author Andrew S.  Licence GPL
 ## https://github.com/quarkscript/Simple_func_scripts.git
@@ -63,7 +63,11 @@ if [ -z "$1" ]
     else
         a=$1
 fi
-starts=$(cat $a | grep "$b" -no | grep -o [0-9][0-9][0-9:] | sed -e "s/://g")
+if [ -z "$3" ]; then
+    starts=$(cat $a | grep "$b" -no | grep -o [0-9][0-9][0-9:] | sed -e "s/://g")
+else
+    starts=$(cat $a | grep -v "$3" | grep "$b" -no | grep -o [0-9][0-9][0-9:] | sed -e "s/://g")
+fi
 ends=$(cat $a | grep ")" -no | grep -o [0-9][0-9][0-9:] | sed -e "s/://g")
 deps=1
 for j in $starts
@@ -90,10 +94,10 @@ if [ "$1" == "-h" ]; then echo '
 ## Author Andrew S. Licence GPL
 ## https://github.com/quarkscript/Simple_func_scripts.git
 '; exit 0; fi 
-echo file $1
+echo "file $1"
 lnl=$(grep -n "$2" "$1" | grep "$3" | sed -e 's/:.*//g')
 # lnl=$(grep -n "$2" "$1" | grep -n "$3" "$1" | sed -e 's/:.*//g')
-echo $lnl
+#echo $lnl
     for l_n in $lnl; do
         head -n $(($l_n-1)) $1 >$1.tmp
         head -n $(($l_n)) $1 >wrk.tmp
@@ -110,8 +114,9 @@ mpbsmpks(){
 if [ "$1" != "-u" ] && [ ! -z "$1" ]; then echo '
 ## mod pkgbuilds and make packages from subdirs
 ## works with archlinux-based environment only
-## use: ./sfslib mpbsmpks or ./sfslib mpbsmpks -u
-## -u means an update, i.e. build and install a different versions
+## use: ./sfslib mpbsmpks or ./sfslib mpbsmpks -u "custom subfolder"
+## -u means an update, i.e. build a different versions
+## "custom subfolder" if you want to process only specified subfolder
 ## Author Andrew S. License MIT and/or GPL
 ## https://github.com/quarkscript/Simple_func_scripts.git
 '; exit 0; fi
@@ -122,7 +127,12 @@ fl+=" '"
 fl2="export CFLAGS+='"
 fl2+=$(cat cxxflags.txt)
 fl2+=" '"
-for i in $(ls -d */ | sed -e 's/\///g')
+if [ -z "$2" ]; then
+    fldrs=$(ls -d */ | sed -e 's/\///g')
+else
+    fldrs=$2
+fi
+for i in $fldrs
     do
         cd $i
         pkn=$(cat PKGBUILD | grep pkgname= | sed 's/.*=//g')
@@ -203,13 +213,24 @@ s_un_pk(){
 if [ "$1" == "-h" ]; then echo '
 ## Search unavailable packages from list on official repository
 ## for purpose to use its as a part of links to Aur
+## There are no any checks, so the probability of fail is high
+## Author Andrew S. License GPL
 '; exit 0; fi
 list=""
 for i in $1; do
-    if ! $(pacman -Ss $i | grep -q [a-z]); then
-        ## rm duplicates
-        if ! $(echo $list | grep "$i" -q); then
-            list+="$i "
+    if $(echo $i | grep -q '.so'); then
+        if ! $(pacman -Ss $i | grep -q [a-z]); then
+            ## rm duplicates
+            if ! $(echo $list | grep "$i" -q); then
+                list+="$i "
+            fi
+        fi
+    else
+        if ! $(pacman -Ss $i | grep -q "/$i"); then
+            ## rm duplicates
+            if ! $(echo $list | grep "$i" -q); then
+                list+="$i "
+            fi
         fi
     fi
 done
@@ -226,7 +247,7 @@ echo '## It is a part of sfslib. Purpose of this function is
 ## Author Andrew S. License GPL'
 exit 1 ; fi
 
-for pp in $(cat $1 | grep -n sha | grep --regexp="=" | sed 's/\:.*//g'); do
+for pp in $(cat $1 | grep -n sha | grep sums | grep --regexp="=" | sed 's/\:.*//g'); do
     tmpval="$pp $tmpval"
 done
 for pp in $tmpval; do
@@ -257,11 +278,113 @@ for pp in $tmpval; do
 done
 }
 
+aurget(){
+if [ -z "$1" ]||[ "$1" == "-h" ]; then echo "
+## aurget - download build and install pkg from AUR with all requirments
+## Use: ./sfslib aurget 'ffmpeg-full' 'force install' 'rcbp'
+## 'ffmpeg-full' - name of desired pkg from AUR
+## 'force install' fresh install of all requred pkg from AUR; by default '' i.e. no
+## 'rcbp' run command before processing, but after clonning, useful for patch or mod
+## There are not all checks, so the probability of fail is high
+## Author Andrew S. Licence GPL
+## https://github.com/quarkscript/Simple_func_scripts.git
+## https://gitlab.com/quarkscript/arch_linux_scripts/blob/master/pkgs_bulds_scripts/sfslib
+"; exit 0; fi
+
+git clone https://aur.archlinux.org/$1.git
+
+if [ ! -f "$1/PKGBUILD" ]; then echo "
+    It seems like Arch User Repository doesn't contain 
+    $1 package. Exit now."; exit 1
+fi
+
+## run command after clonning but before processing, useful for patch or mod
+if [ ! -z "$3" ]; then
+    $3
+fi
+
+## internal function to asqure dependends from PKGBUILD
+ask_dep(){
+    edfpb "$1/PKGBUILD" "$2" "$3"
+    for ji in $(ls -f | grep deps); do 
+        cat $ji >> req_all
+        rm -f $ji
+    done
+}
+## internal function to get list of required not installed pkgs
+getdepslist(){
+    rm -f req_all
+    ask_dep "$1" "" "optdepends"
+    ask_dep "$1" "depends='" "optdepends"
+    ask_dep "$1" "depends_x86_64="
+    ask_dep "$1" "makedepends"
+    ask_dep "$1" "checkdepends=("
+    ## rm duplicates from list of packages and test installed pkgs
+    if [ -f req_all ]; then
+        rmdtpi "req_all"
+    fi
+    ## make empty file req_all.req if it absent
+    if [ ! -f req_all.req ]; then echo "">req_all.req ; fi
+}
+
+getdepslist "$1"
+
+aur_deps=''
+echo "
+Compare requirments and official repository, 
+difference will be requested from AUR...
+"
+for i in $(s_un_pk "$(cat req_all.req)"); do
+    aur_deps+="$i "
+done
+if [ ! -z "$aur_deps" ]; then
+    mkdir $1/aur_dependents
+    cp -f sfslib $1/aur_dependents/sfslib
+    cp -f cxxflags.txt $1/aur_dependents/cxxflags.txt
+    cd $1/aur_dependents
+    
+    ## make required aur dependecies
+    for pks in $aur_deps; do 
+        ./sfslib aurget "$pks" "$2"
+    done
+    ##
+    
+    cd ../..
+    
+fi
+
+## install required pkgs from system repository
+getdepslist "$1"
+req_pk_fr_sysrepo=$(echo $(cat req_all.req))
+if [ "$req_pk_fr_sysrepo" != "" ]; then
+    echo ">> needed package(s):
+$(echo $req_pk_fr_sysrepo)
+>> sudo password is required to install it"
+    sudo pacman -S --needed $req_pk_fr_sysrepo
+fi
+
+## remove pgp and sha checks... it's not a good idea actually, but without it there is 
+## a high probability of build fail some components that is cause an overall build fail
+mcolif "$1/PKGBUILD" '{,.asc}' '{,.asc}' ' "rmasc"'
+echo 'removed pgp signature' >$1/rmasc
+skipsha "$1/PKGBUILD"
+
+## if no force install
+if [ -z "$2" ]; then uppd='-u'; else uppd=''; fi
+
+## make asked package
+mpbsmpks "$uppd" "$1"
+if [ -f $1*pkg.tar.xz ]; then
+    echo ">> sudo password is required to install $1"
+    sudo pacman -U $1*pkg.tar.xz
+fi
+}
+
 cxx_flags(){
 if [ "$1" == "-h" ]; then echo '
 ## Try to collect possible local hardware optimization flags
-## for gcc (v8), with purpose to use it for any source code
-## Req: grep, gcc, sed, lscpu, hash. Use: ./sfslib cxx_flags
+## for gcc (v8/v9), with purpose to use it for any source code
+## Req: grep, gcc, sed, hash. Use: ./sfslib cxx_flags
 ## Author Andrew S. Licence GPL
 ## https://github.com/quarkscript/Simple_func_scripts.git
 ## https://gitlab.com/quarkscript/arch_linux_scripts/blob/master/pkgs_bulds_scripts/sfslib
