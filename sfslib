@@ -281,10 +281,12 @@ done
 aurget(){
 if [ -z "$1" ]||[ "$1" == "-h" ]; then echo "
 ## aurget - download build and install pkg from AUR with all requirments
-## Use: ./sfslib aurget 'ffmpeg-full' 'force install' 'rcbp'
+## Use: ./sfslib aurget 'ffmpeg-full' 'force install' 'rcbp' 'use_checks'
 ## 'ffmpeg-full' - name of desired pkg from AUR
 ## 'force install' fresh install of all requred pkg from AUR; by default '' i.e. no
 ## 'rcbp' run command before processing, but after clonning, useful for patch or mod
+## it will be used to all aur-dependencies-packages, be aware
+## 'use_checks' if nonempty then will not remove sha and pgp checks in PKDBUILDs
 ## There are not all checks, so the probability of fail is high
 ## Author Andrew S. Licence GPL
 ## https://github.com/quarkscript/Simple_func_scripts.git
@@ -298,10 +300,11 @@ if [ ! -f "$1/PKGBUILD" ]; then echo "
     $1 package. Exit now."; exit 1
 fi
 
+## if cxxflags.txt doesnt exist make it
+if [ -f cxxflags.txt ]; then echo ''>cxxflags.txt ; fi
+
 ## run command after clonning but before processing, useful for patch or mod
-if [ ! -z "$3" ]; then
-    $3
-fi
+if [ ! -z "$3" ]; then $3 ; fi
 
 ## internal function to asqure dependends from PKGBUILD
 ask_dep(){
@@ -341,11 +344,14 @@ if [ ! -z "$aur_deps" ]; then
     mkdir $1/aur_dependents
     cp -f sfslib $1/aur_dependents/sfslib
     cp -f cxxflags.txt $1/aur_dependents/cxxflags.txt
+    if [ ! -z "$3" ]; then 
+        cp -f $3 $1/aur_dependents/$3
+    fi
     cd $1/aur_dependents
     
     ## make required aur dependecies
     for pks in $aur_deps; do 
-        ./sfslib aurget "$pks" "$2"
+        ./sfslib aurget "$pks" "$2" "$3" "$4"
     done
     ##
     
@@ -365,9 +371,11 @@ fi
 
 ## remove pgp and sha checks... it's not a good idea actually, but without it there is 
 ## a high probability of build fail some components that is cause an overall build fail
-mcolif "$1/PKGBUILD" '{,.asc}' '{,.asc}' ' "rmasc"'
-echo 'removed pgp signature' >$1/rmasc
-skipsha "$1/PKGBUILD"
+if [ -z "$4" ]; then
+    mcolif "$1/PKGBUILD" '{,.asc}' '{,.asc}' ' "rmasc"'
+    echo 'removed pgp signature' >$1/rmasc
+    skipsha "$1/PKGBUILD"
+fi
 
 ## if no force install
 if [ -z "$2" ]; then uppd='-u'; else uppd=''; fi
