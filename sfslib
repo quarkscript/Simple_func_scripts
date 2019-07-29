@@ -301,7 +301,7 @@ if [ ! -f "$1/PKGBUILD" ]; then echo "
 fi
 
 ## if cxxflags.txt doesnt exist make it
-if [ -f cxxflags.txt ]; then echo ''>cxxflags.txt ; fi
+if [ ! -f cxxflags.txt ]; then echo ''>cxxflags.txt ; fi
 
 ## run command after clonning but before processing, useful for patch or mod
 if [ ! -z "$3" ]; then $3 ; fi
