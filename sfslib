@@ -78,7 +78,8 @@ for j in $starts
                     then
                         head -n $i $a >/tmp/dep1.tmp
                         tail -n $(($i-$j+1)) /tmp/dep1.tmp >/tmp/dep2.tmp
-                        cat /tmp/dep2.tmp | sed -e 's/:.*//g' | sed -e 's/#.*//g' | sed -e "s/'//g" | sed -e "s/)//g" | sed -e "s/(//g" | sed -e 's/"//g' | sed -e "s/,//g" | sed -e 's/.*=//g' | sed -e "s/$b//g">deps$deps
+                        #cat /tmp/dep2.tmp | sed -e 's/:.*//g' | sed -e 's/#.*//g' | sed -e "s/'//g" | sed -e "s/)//g" | sed -e "s/(//g" | sed -e 's/"//g' | sed -e "s/,//g" | sed -e 's/.*=//g' | sed -e "s/$b//g">deps$deps
+                        cat /tmp/dep2.tmp | sed -e 's/:.*//g' | sed -e 's/#.*//g' | sed -e "s/'//g" | sed -e "s/.*\=(//g" | sed -e "s/)//g" | sed -e "s/(//g" | sed -e 's/"//g' | sed -e "s/,//g" | sed -e 's/[<,>,=].* / /g'>deps$deps
                         deps=$(($deps+1))
                         rm -r /tmp/dep1.tmp /tmp/dep2.tmp                
                         break
@@ -301,7 +302,7 @@ if [ ! -f "$1/PKGBUILD" ]; then echo "
 fi
 
 ## if cxxflags.txt doesnt exist make it
-if [ ! -f cxxflags.txt ]; then echo ''>cxxflags.txt ; fi
+if [ -f cxxflags.txt ]; then echo ''>cxxflags.txt ; fi
 
 ## run command after clonning but before processing, useful for patch or mod
 if [ ! -z "$3" ]; then $3 ; fi
