@@ -1,0 +1,64 @@
+#!/bin/bash
+## Req. bash read mktemp sha256sum find wc head tail echo rm cp grep
+## There are no any checks...
+## Author Andrew S. License GPL [github,gitlab].com/quarkscript
+echo '
+        Find And Remove DUplicates from current dir and subdirs
+WARNING! any next file with duplicate hash-sum will be deleted
+'
+read -p "Do you still want to proceed? (YES to continue or CHK) " isrun
+if [ "$isrun" != "CHK" ]&&[ "$isrun" != "YES" ]; then echo '    Script terminated.'; exit 0; fi
+
+iamnotstuck(){
+                prsy[0]='#  '; prsy[1]=' # '; prsy[2]='  #'; prsy[3]='   '
+                rand=$[$RANDOM % ${#prsy[@]}]
+                echo -en "\r${prsy[$rand]}"
+}
+cmphashes(){
+                ## $1-filename $2-line number $3-output file name
+                curhash=$(head -n $2 $1 2>&1 | tail -n 1 | sed 's/ .*//g')
+                lines=$(echo $(cat $1 | tail -n +$(($2+1)) | grep -e $curhash -n | sed 's/\:.*//g'))
+                for jojo in $lines; do
+                    tmpvariable=$(($jojo+$2))
+                    fln=$(head -n $tmpvariable $1 2>&1 | tail -n 1 | sed "s@$curhash  @@g")
+                    if ! $(cat $3 | grep -e "$fln" -q); then echo "$fln">>$3; fi
+                done
+}
+
+flst=$(mktemp XXXXXX.tmp)
+maxthreads=$(($(grep 'model name' /proc/cpuinfo --count)+1))
+threads=0
+
+find -type f | sed 's|\.\/||g'>$flst
+
+fhashlst=$(mktemp XXXXX.tmp)
+for ((lnm=1;lnm<=$(wc -l $flst | sed "s/ $flst//g");lnm+=1)); do
+    threads=$(($threads+1))
+    sha256sum "$(head -n $lnm $flst 2>&1 | tail -n 1)">>$fhashlst &
+    if [ "$threads" == "$maxthreads" ]; then wait; threads=0; iamnotstuck; fi
+done
+wait
+
+rm_list=$(mktemp XXXXXXX.tmp)
+threads=0
+for ((lnm=1;lnm<$(wc -l $fhashlst | sed "s/ $fhashlst//g");lnm+=1)); do
+    threads=$(($threads+1))
+    cmphashes "$fhashlst" "$lnm" "$rm_list" &
+    if [ "$threads" == "$maxthreads" ]; then wait; threads=0; iamnotstuck; fi
+done
+wait
+echo -en "\r"
+if [ ! -s "$rm_list" ]; then 
+    echo "No duplicates found"
+elif [ "$isrun" == "CHK" ]; then 
+    echo "    Candidates for removal:"
+    cat $rm_list
+    cp -f $rm_list fardu.list
+    echo "    You can find the whole list at fardu.list"
+elif [ "$isrun" == "YES" ]; then
+    for ((jj=1;jj<=$(wc -l $rm_list | sed "s/ $rm_list//g");jj+=1)); do
+        rm -f "$(head -n $jj $rm_list 2>&1 | tail -n 1)"
+        echo ' 'removed '"'"$(head -n $jj $rm_list 2>&1 | tail -n 1)"'"'
+    done
+fi
+rm -f $flst $fhashlst $rm_list
