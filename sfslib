@@ -151,7 +151,13 @@ for i in $fldrs
             #../sfslib mcolif 'PKGBUILD' ' make' ' make' " make -j$(($(grep 'model name' /proc/cpuinfo --count)+1))"
             mcolif 'PKGBUILD' ' make ' ' make ' " make -j$(($(grep 'model name' /proc/cpuinfo --count)+1)) "
             makepkg
-            cp *pkg.tar.xz ../
+            if [ -f *pkg.tar.xz ]; then 
+                cp *pkg.tar.xz ../
+            elif [ -f *pkg.tar.zst ]; then
+                cp *pkg.tar.zst ../
+            else
+                echo "## it seems pkg $pkn was not build"
+            fi
         else
             echo "## pkg: $pkn $pkv-$pkr is already installed"
         fi
@@ -386,6 +392,10 @@ mpbsmpks "$uppd" "$1"
 if [ -f $1*pkg.tar.xz ]; then
     echo ">> sudo password is required to install $1"
     sudo pacman -U $1*pkg.tar.xz
+fi
+if [ -f $1*pkg.tar.zst ]; then
+    echo ">> sudo password is required to install $1"
+    sudo pacman -U $1*pkg.tar.zst
 fi
 }
 
