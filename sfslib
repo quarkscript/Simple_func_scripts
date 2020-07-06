@@ -1,10 +1,10 @@
 #!/bin/bash
 if [ -z $1 ] || [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "help" ]; then
     echo "
-Simple function scripts library. There are:
-$(echo $(cat $0 | grep '(){' | sed 's/(.*//g' | sed 's/\$//g') | sed 's/ /, /g').
-Use: $0 func_name func_params OR $0 func_name -h 
-Author Andrew S. https://[github OR gitlab].com/quarkscript License GPL
+## Simple function scripts library. There are:
+   $(echo $(cat $0 | grep '(){' | sed 's/(.*//g' | sed 's/\$//g') | sed 's/ /, /g').
+## Use: $0 func_name func_params OR $0 func_name -h 
+## Author Andrew S. https://[github OR gitlab].com/quarkscript License GPL
 "; exit 0
 fi
 
@@ -756,6 +756,234 @@ cxxflags+="-fvect-cost-model=dynamic "
 fi
 }
 
+fardu(){
+if [ "$1" == "-h" ]; then echo '
+## Find And Remove DUplicates from current dir and subdirs
+## Req. bash read mktemp sha256sum find wc head tail echo rm cp grep
+## There are no any checks...
+## Author Andrew S. License GPL [github,gitlab].com/quarkscript
+'; exit 0; fi
+
+echo '
+        Find And Remove DUplicates from current dir and subdirs
+WARNING! any next file with duplicate hash-sum will be deleted
+'
+read -p "Do you still want to proceed? (YES to continue or CHK) " isrun
+if [ "$isrun" != "CHK" ]&&[ "$isrun" != "YES" ]; then echo '    Script terminated.'; exit 0; fi
+
+iamnotstuck() {
+                prsy[0]='#  '; prsy[1]=' # '; prsy[2]='  #'; prsy[3]='   '
+                rand=$[$RANDOM % ${#prsy[@]}]
+                echo -en "\r${prsy[$rand]}"
+}
+cmphashes() {
+                ## $1-filename $2-line number $3-output file name
+                curhash=$(head -n $2 $1 2>&1 | tail -n 1 | sed 's/ .*//g')
+                lines=$(echo $(cat $1 | tail -n +$(($2+1)) | grep -e $curhash -n | sed 's/\:.*//g'))
+                for jojo in $lines; do
+                    tmpvariable=$(($jojo+$2))
+                    fln=$(head -n $tmpvariable $1 2>&1 | tail -n 1 | sed "s@$curhash  @@g")
+                    if ! $(cat $3 | grep -e "$fln" -q); then echo "$fln">>$3; fi
+                done
+}
+
+flst=$(mktemp XXXXXX.tmp)
+maxthreads=$(($(grep 'model name' /proc/cpuinfo --count)+1))
+threads=0
+
+find -type f | sed 's|\.\/||g'>$flst
+
+fhashlst=$(mktemp XXXXX.tmp)
+for ((lnm=1;lnm<=$(wc -l $flst | sed "s/ $flst//g");lnm+=1)); do
+    threads=$(($threads+1))
+    sha256sum "$(head -n $lnm $flst 2>&1 | tail -n 1)">>$fhashlst &
+    if [ "$threads" == "$maxthreads" ]; then wait; threads=0; iamnotstuck; fi
+done
+wait
+
+rm_list=$(mktemp XXXXXXX.tmp)
+threads=0
+for ((lnm=1;lnm<$(wc -l $fhashlst | sed "s/ $fhashlst//g");lnm+=1)); do
+    threads=$(($threads+1))
+    cmphashes "$fhashlst" "$lnm" "$rm_list" &
+    if [ "$threads" == "$maxthreads" ]; then wait; threads=0; iamnotstuck; fi
+done
+wait
+echo -en "\r"
+if [ ! -s "$rm_list" ]; then 
+    echo "No duplicates found"
+elif [ "$isrun" == "CHK" ]; then 
+    echo "    Candidates for removal:"
+    cat $rm_list
+    cp -f $rm_list fardu.list
+    echo "    You can find the whole list at fardu.list"
+elif [ "$isrun" == "YES" ]; then
+    for ((jj=1;jj<=$(wc -l $rm_list | sed "s/ $rm_list//g");jj+=1)); do
+        rm -f "$(head -n $jj $rm_list 2>&1 | tail -n 1)"
+        echo ' 'removed '"'"$(head -n $jj $rm_list 2>&1 | tail -n 1)"'"'
+    done
+fi
+rm -f $flst $fhashlst $rm_list
+}
+
+## The following functions are only for building the Linux kernel
+
+localcpu(){
+if [ "$1" == "-h" ]; then echo '
+## Tune cpu.patch to local hw
+## Req: grep, gcc, sed, lscpu, hash, sha512sum,
+##                                   cpu.patch
+## Use: ./localcpu
+## Author Andrew S.     Licence GPL
+## Tested on Arch Linux and Linux Kernel source 5.7.7
+## https://github.com/quarkscript/Simple_func_scripts.git
+## https://gitlab.com/quarkscript/arch_linux_scripts/blob/master/pkgs_bulds_scripts/sfslib
+'; exit 0; fi
+
+if [ ! -e "cpu.patch" ]; then
+    echo "
+-------------------
+cpu.patch not found
+nothing to tune
+-------------------"
+elif ! (hash gcc 2>/dev/null); then
+    echo "
+-------------------
+gcc not found, exit
+-------------------"
+elif [ -e "localcpu.patch" ]; then
+    echo "
+---------------------------
+localcpu.patch is present
+Tunning will not run
+
+to gen a new localcpu.patch
+you must remove existing
+---------------------------"
+else
+    if [ "$(gcc -v 2>&1 | grep version | sed 's/.*version //g' | sed 's/\..*//g')" != "10" ]; then
+        echo "seems like gcc ver < 10.x"
+        sleep 2
+    fi
+
+    if [ ! -e "cxxflags.txt" ]; then
+        cxx_flags
+    fi
+    
+    cp cpu.patch localcpu.patch
+    count=0
+    for k in $(cat cxxflags.txt | sed -e 's/--param//g'); do
+        if [ "$count" -eq "0" ]; then
+            enabl="$k "
+            call_cc="$""(call cc-option,$k"
+            for i in core2 nehalem westmere silvermont sandybridge ivybridge haswell broadwell skylake k8-sse3 amdfam10 barcelona btver1 bdver1 bdver2 bdver3 btver2 bdver4 znver1 znver2 nocona skylake-avx512 cannonlake icelake cascadelake cooperlake tigerlake; do
+                if (grep $i cxxflags.txt -q); then
+                    arrch=$i
+                fi
+            done
+        else
+            if $(echo $k | grep cache -q); then 
+                enabl+="--param $k "
+                call_cc+=",$""(call cc-option,--param $k)"
+            else
+                enabl+="$k "
+                call_cc+=",$""(call cc-option,$k)"
+            fi
+        fi
+        count=$(($count+1))
+    done
+    call_cc+=")"
+
+    if [ -z $arrch ]; then
+        echo "
+-----------------------------------------------------
+CPU type is undetected, tuning of cpu.patch
+is not possible for now. It is better to use native
+or generic optimizations '('do not forget to patch
+kernel source with original cpu.patch')'
+-----------------------------------------------------"
+        rm -f localcpu.patch
+    else
+        p_t='Enables -march='$arrch
+        l_n=$(grep -n "$p_t" localcpu.patch | sed -e 's/:.*//g')
+        head -n $(($l_n-1)) localcpu.patch >patch.patch
+        echo "+	  Enables "$enabl>>patch.patch
+        tail -n +$(($l_n+1)) localcpu.patch >>patch.patch
+        rm -f localcpu.patch
+        cp -f patch.patch localcpu.patch
+        rm -f patch.patch
+        p_t='$(call cc-option,-march='$arrch',$(call cc-option,-mtune='$arrch'))'
+        l_n=$(grep -n "$p_t" localcpu.patch | sed -e 's/:.*//g')
+        head -n $(($l_n-1)) localcpu.patch >patch.patch
+        echo "+        "$call_cc>>patch.patch
+        tail -n +$(($l_n+1)) localcpu.patch >>patch.patch
+        rm -f localcpu.patch
+        cp -f patch.patch localcpu.patch
+        rm -f patch.patch
+        echo "
+-----------------------------------------------------
+Linux kernel could be better optimized to 
+CPU $(echo $(grep 'model name' /proc/cpuinfo --max-count=1) | sed 's/  //g')
+just patch kernel source with localcpu.patch and
+select '$arrch' CPU-family while configuring it
+-----------------------------------------------------"
+    fi
+    if [ ! "$(sha512sum cpu.patch | sed -e 's/  cpu.patch//')" == "f26616509925a4839a588f56e1b7c10f769062f3d1ea0459359b4ddb27826cd3bf472bdc1865c6998fddb9c4a9975882b71dac497072f03f1c2a291245288f80" ]; then
+        echo "
+cpu.patch is differ from the expexted..
+Wrong source can leads to fails. Be aware"
+    fi
+fi
+}
+
+fti(){
+if [ "$1" == "-h" ]; then echo "
+## Force Template Integration to kernel config file
+## No parameter dependency checking. Double check required
+## Use $0 fti OR $0 fti 'template name'
+## Required .config Author Andrew S. Licence GPL
+## Tested on Arch Linux and Linux Kernel source 5.7.7
+## https://github.com/quarkscript/Simple_func_scripts.git
+## https://gitlab.com/quarkscript/arch_linux_scripts/blob/master/pkgs_bulds_scripts/sfslib
+"; exit 0
+## template name
+elif [ "$1" != '' ]; then
+    t_n="$1"
+else
+    t_n="conf_tmpl"
+fi
+
+## config name
+c_n=".config"
+
+t_l_n=$(wc -l "$t_n" | sed "s/ .*//g")
+for ((cycle=1;cycle<=$t_l_n;cycle++)) do
+    tmpvar1=$(head -n $cycle $t_n | tail -n 1)
+    tmpvar2=""
+    tmpvar3=""
+    if ($(echo $tmpvar1 | grep -q "#")&&$(echo $tmpvar1 | grep -q "is not set")); then
+        tmpvar2=$(echo $tmpvar1 | sed "s/# //g" | sed "s/ is not.*//g")
+        tmpvar3=$(grep "$tmpvar2[ =]" "$c_n")
+    elif ($(echo $tmpvar1 | grep -vq "#")&&$(echo $tmpvar1 | grep -q "=")); then
+        tmpvar2=$(echo $tmpvar1 | sed "s/=.*//g")
+        tmpvar3=$(grep "$tmpvar2[ =]" "$c_n")
+    fi
+    if [ "$tmpvar3" != "" ]&&[ "$tmpvar2" != "" ]; then
+        if [ "$tmpvar2" != "$tmpvar3" ]; then
+            tmpvar4="s@"
+            tmpvar4+=$tmpvar3
+            tmpvar4+="@"
+            tmpvar4+=$tmpvar1
+            tmpvar4+="@g"
+            sed --expression="$tmpvar4" "$c_n" >$c_n.tmp
+            mv -f $c_n.tmp $c_n
+        fi
+    elif [ "$tmpvar2" != "" ]; then
+        echo "$tmpvar1">>$c_n
+    fi
+done
+
+}
 
 ############################
 ## execute required function
