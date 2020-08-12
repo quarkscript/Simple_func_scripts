@@ -905,13 +905,15 @@ kernel source with original cpu.patch')'
         rm -f localcpu.patch
     else
         p_t='Enables -march='$arrch
-        l_n=$(grep -n "$p_t" localcpu.patch | sed -e 's/:.*//g')
-        head -n $(($l_n-1)) localcpu.patch >patch.patch
-        echo "+	  Enables "$enabl>>patch.patch
-        tail -n +$(($l_n+1)) localcpu.patch >>patch.patch
-        rm -f localcpu.patch
-        cp -f patch.patch localcpu.patch
-        rm -f patch.patch
+        if $(grep -q "$p_t" localcpu.patch); then
+            l_n=$(grep -n "$p_t" localcpu.patch | sed -e 's/:.*//g')
+            head -n $(($l_n-1)) localcpu.patch >patch.patch
+            echo "+	  Enables "$enabl>>patch.patch
+            tail -n +$(($l_n+1)) localcpu.patch >>patch.patch
+            rm -f localcpu.patch
+            cp -f patch.patch localcpu.patch
+            rm -f patch.patch
+        fi
         p_t='$(call cc-option,-march='$arrch',$(call cc-option,-mtune='$arrch'))'
         l_n=$(grep -n "$p_t" localcpu.patch | sed -e 's/:.*//g')
         head -n $(($l_n-1)) localcpu.patch >patch.patch
@@ -928,7 +930,11 @@ just patch kernel source with localcpu.patch and
 select '$arrch' CPU-family while configuring it
 -----------------------------------------------------"
     fi
-    if [ ! "$(sha512sum cpu.patch | sed -e 's/  cpu.patch//')" == "f26616509925a4839a588f56e1b7c10f769062f3d1ea0459359b4ddb27826cd3bf472bdc1865c6998fddb9c4a9975882b71dac497072f03f1c2a291245288f80" ]; then
+    if [ "$(sha512sum cpu.patch | sed -e 's/  cpu.patch//')" == "f26616509925a4839a588f56e1b7c10f769062f3d1ea0459359b4ddb27826cd3bf472bdc1865c6998fddb9c4a9975882b71dac497072f03f1c2a291245288f80" ]; then
+        patchisknown=1
+    elif [ "$(sha512sum cpu.patch | sed -e 's/  cpu.patch//')" == "d10d70371be6a8a6c8c4d63c4bb8c520cea3db9294a8ea2fb2633df3731b4ff56568a04d0216c8097b02b8e48613e93a87be9da24a17be2130cadb6bc2a3536e" ]; then
+        patchisknown=1
+    else
         echo "
 cpu.patch is differ from the expexted..
 Wrong source can leads to fails. Be aware"
