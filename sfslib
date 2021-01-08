@@ -190,8 +190,7 @@ echo $tr>$1
 ## test req packages
 req=""
 installed_list=$(pacman -Qq)
-for i in $tr
-    do
+for i in $tr; do
     req+=" "$(echo $i | grep -vx "$installed_list" )
 done
 echo $req>$1.req
@@ -311,10 +310,10 @@ fi
 if [ ! -f cxxflags.txt ]; then echo ''>cxxflags.txt ; fi
 
 ## run command after clonning but before processing, useful for patch or mod
-if [ ! -z "$3" ]; then $3 ; fi
+if [ ! -z "$3" ]; then $3 $1 ; fi
 
 ## internal function to asqure dependends from PKGBUILD
-ask_dep(){
+ask_dep() {
     edfpb "$1/PKGBUILD" "$2" "$3"
     for ji in $(ls -f | grep deps); do 
         cat $ji >> req_all
@@ -322,7 +321,7 @@ ask_dep(){
     done
 }
 ## internal function to get list of required not installed pkgs
-getdepslist(){
+getdepslist() {
     rm -f req_all
     ask_dep "$1" "" "optdepends"
     ask_dep "$1" "depends='" "optdepends"
@@ -338,6 +337,8 @@ getdepslist(){
 }
 
 getdepslist "$1"
+
+if [ ! -z "$2" ]; then cp -f req_all req_all.req; fi
 
 aur_deps=''
 echo "
@@ -397,6 +398,45 @@ if [ -f $1*pkg.tar.zst ]; then
     echo ">> sudo password is required to install $1"
     sudo pacman -U $1*pkg.tar.zst
 fi
+}
+
+armget(){
+if [ -z "$1" ]||[ "$1" == "-h" ]; then echo "
+## run aurget for arm architecture; input argument same as for aurget
+## it will fail if any component is already compiled or cannot be compiled for arm
+##
+## aurget - download build and install pkg from AUR with all requirments
+## Use: $0 aurget 'ffmpeg-full' 'force install' 'rcbp' 'use_checks'
+## 'ffmpeg-full' - name of desired pkg from AUR
+## 'force install' fresh install of all requred pkg from AUR; by default '' i.e. no
+## 'rcbp' run command before processing, but after clonning, useful for patch or mod
+## it will be used to all aur-dependencies-packages, be aware
+## 'use_checks' if nonempty then will not remove sha and pgp checks in PKDBUILDs
+## There are not all checks, so the probability of fail is high
+## Author Andrew S. https://[gitlab,github].com/quarkscript/ Licence GPL
+"; exit 0; fi
+ 
+## if cxxflags.txt doesnt exist make it
+if [ ! -f cxxflags.txt ]&&$( uname -m | grep -q armv7l)&&$(cat /proc/cpuinfo | grep -q "Samsung Exynos"); then 
+    echo ' -fno-plt -mfloat-abi=hard -mfpu=neon-vfpv4 -pipe -fstack-protector-strong -march=armv7-a+mp+neon --param l1-cache-size=64 --param l2-cache-size=1024 -fno-strict-aliasing -faggressive-loop-optimizations -fcombine-stack-adjustments -fcprop-registers -fcrossjumping -fforward-propagate -fguess-branch-probability -fif-conversion2 -fipa-sra -fira-hoist-pressure -fira-loop-pressure -fira-share-save-slots -fivopts -fjump-tables -floop-interchange -floop-nest-optimize -floop-unroll-and-jam -fmove-loop-invariants -fomit-frame-pointer -foptimize-sibling-calls -foptimize-strlen -fpeel-loops -fpeephole -fpeephole2 -fpredictive-commoning -fprefetch-loop-arrays -freg-struct-return -frename-registers -fschedule-fusion -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops -fshrink-wrap-separate -fsimd-cost-model=dynamic -fsplit-ivs-in-unroller -fsplit-loops -fsplit-paths -fssa-backprop -fssa-phiopt -fstdarg-opt -fthread-jumps -ftree-bit-ccp -ftree-ccp -ftree-cselim -ftree-dominator-opts -ftree-forwprop -ftree-loop-distribution -ftree-loop-optimize -ftree-loop-vectorize -ftree-pre -ftree-slp-vectorize -ftree-vectorize -funroll-loops -fvect-cost-model=dynamic '>cxxflags.txt
+elif [ ! -f cxxflags.txt ]; then echo ''>cxxflags.txt ; fi
+ echo '#!/bin/bash
+ 
+ if $(cat "$1/PKGBUILD" | grep "arch=" | grep -vq aarch64); then
+    ./sfslib mcolif "$1/PKGBUILD" "arch=" "(" "('"'"'aarch64'"'"' "
+ fi
+ if $(cat "$1/PKGBUILD" | grep "arch=" | grep -vq armv7h); then
+    ./sfslib mcolif "$1/PKGBUILD" "arch=" "(" "('"'"'armv7h'"'"' "
+ fi
+ if $(cat "$1/PKGBUILD" | grep "arch=" | grep -vq armv6h); then
+    ./sfslib mcolif "$1/PKGBUILD" "arch=" "(" "('"'"'armv6h'"'"' "
+ fi
+ ' >>addarmarch
+ chmod +x addarmarch
+ if [ ! -z "$3" ]&&[ -f "$3" ]; then cat "$3" >>addarmarch
+ elif [ ! -z "$3" ]; then echo "$3" >>addarmarch
+ fi
+ aurget "$1" "$2" "./addarmarch" "$4"
 }
 
 cxx_flags(){
@@ -475,14 +515,14 @@ cxxflags+="-fcrossjumping " #  #  #  #   Perform cross-jumping optimization.
 # cxxflags+="-fcse-follow-jumps #  #  #  When running CSE, follow jumps to their targets.
 # cxxflags+="-fcx-fortran-rules #  #  #  Complex multiplication and division follow Fortran rules.
 # cxxflags+="-fcx-limited-range #  #  #  Omit range reduction step when performing complex division.
-cxxflags+="-fdce " #  #  #  #  #  #  #   Use the RTL dead code elimination pass.
+# cxxflags+="-fdce " #  #  #  #  #  #  #   Use the RTL dead code elimination pass.
 # cxxflags+="-fdefer-pop #  #  #  #  #   Defer popping functions args from stack until later.
-cxxflags+="-fdelayed-branch " #  #  #  # Attempt to fill delay slots of branch instructions.
-cxxflags+="-fdelete-dead-exceptions " #  Delete dead instructions that may throw exceptions.
-cxxflags+="-fdelete-null-pointer-checks " # Delete useless null pointer checks.
+# cxxflags+="-fdelayed-branch " #  #  #  # Attempt to fill delay slots of branch instructions.
+# cxxflags+="-fdelete-dead-exceptions " #  Delete dead instructions that may throw exceptions.
+# cxxflags+="-fdelete-null-pointer-checks " # Delete useless null pointer checks.
 # cxxflags+="-fdevirtualize #  #  #  #   Try to convert virtual calls to direct ones.
 # cxxflags+="-fdevirtualize-speculatively Perform speculative devirtualization.
-cxxflags+="-fdse " #  #  #  #  #  #  #   Use the RTL dead store elimination pass.
+# cxxflags+="-fdse " #  #  #  #  #  #  #   Use the RTL dead store elimination pass.
 # cxxflags+="-fearly-inlining #  #  #  # Perform early inlining.
 # cxxflags+="-fexceptions #  #  #  #  #  Enable exception handling.
 # cxxflags+="-fexcess-precision=[fast|standard] Specify handling of excess floating-point precision.
@@ -497,8 +537,8 @@ cxxflags+="-fforward-propagate " #  #  # Perform a forward propagation pass on R
 # cxxflags+="-ffp-int-builtin-inexact #  Allow built-in functions ceil, floor, round, trunc to raise
  #  #  #  #  #  #  #  #  #  # "inexact" exceptions.
 # cxxflags+="-ffunction-cse #  #  #  #   Allow function addresses to be held in registers.
-cxxflags+="-fgcse " #  #  #  #  #  #  #  Perform global common subexpression elimination.
-cxxflags+="-fgcse-after-reload " #  #  # Perform global common subexpression elimination after register
+#cxxflags+="-fgcse " #  #  #  #  #  #  #  Perform global common subexpression elimination.
+#cxxflags+="-fgcse-after-reload " #  #  # Perform global common subexpression elimination after register
  #  #  #  #  #  #  #  #  #  # allocation has finished.
 # cxxflags+="-fgcse-las #  #  #  #  #  # Perform redundant load after store elimination in global common
  #  #  #  #  #  #  #  #  #  # subexpression elimination.
@@ -611,7 +651,7 @@ cxxflags+="-frename-registers " #  #  #  Perform a register renaming optimizatio
 # cxxflags+="-freorder-blocks-algorithm=[simple|stc] Set the used basic block reordering algorithm.
 # cxxflags+="-freorder-blocks-and-partition Reorder basic blocks and partition into hot and cold sections.
 # cxxflags+="-freorder-functions #  #  # Reorder functions to improve code placement.
-cxxflags+="-frerun-cse-after-loop " #  # Add a common subexpression elimination pass after loop
+# cxxflags+="-frerun-cse-after-loop " #  # Add a common subexpression elimination pass after loop
  #  #  #  #  #  #  #  #  #  # optimizations.
 # cxxflags+="-freschedule-modulo-scheduled-loops Enable/Disable the traditional scheduling in loops that
  #  #  #  #  #  #  #  #  #  # already passed modulo scheduling.
@@ -691,15 +731,15 @@ cxxflags+="-fthread-jumps " #  #  #  #   Perform jump threading optimizations.
 # cxxflags+="-ftrapv #  #  #  #  #  #  # Trap for signed overflow in addition, subtraction and
  #  #  #  #  #  #  #  #  #  # multiplication.
 cxxflags+="-ftree-bit-ccp " #  #  #  #   Enable SSA-BIT-CCP optimization on trees.
-cxxflags+="-ftree-builtin-call-dce " #   Enable conditional dead code elimination for builtin calls.
+# cxxflags+="-ftree-builtin-call-dce " #   Enable conditional dead code elimination for builtin calls.
 cxxflags+="-ftree-ccp " #  #  #  #  #  # Enable SSA-CCP optimization on trees.
 # cxxflags+="-ftree-ch #  #  #  #  #  #  Enable loop header copying on trees.
 # cxxflags+="-ftree-coalesce-vars #  #   Enable SSA coalescing of user variables.
 # cxxflags+="-ftree-copy-prop #  #  #  # Enable copy propagation on trees.
 cxxflags+="-ftree-cselim " #  #  #  #  # Transform condition stores into unconditional ones.
-cxxflags+="-ftree-dce " #  #  #  #  #  # Enable SSA dead code elimination optimization on trees.
+# cxxflags+="-ftree-dce " #  #  #  #  #  # Enable SSA dead code elimination optimization on trees.
 cxxflags+="-ftree-dominator-opts " #  #  Enable dominator optimizations.
-cxxflags+="-ftree-dse " #  #  #  #  #  # Enable dead store elimination.
+# cxxflags+="-ftree-dse " #  #  #  #  #  # Enable dead store elimination.
 cxxflags+="-ftree-forwprop " #  #  #  #  Enable forward propagation on trees.
 # cxxflags+="-ftree-fre #  #  #  #  #  # Enable Full Redundancy Elimination (FRE) on trees.
 # cxxflags+="-ftree-loop-distribute-patterns Enable loop distribution for patterns transformed into a
