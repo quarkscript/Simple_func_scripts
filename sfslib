@@ -79,9 +79,9 @@ for j in $starts
                         head -n $i $a >/tmp/dep1.tmp
                         tail -n $(($i-$j+1)) /tmp/dep1.tmp >/tmp/dep2.tmp
                         #cat /tmp/dep2.tmp | sed -e 's/:.*//g' | sed -e 's/#.*//g' | sed -e "s/'//g" | sed -e "s/)//g" | sed -e "s/(//g" | sed -e 's/"//g' | sed -e "s/,//g" | sed -e 's/.*=//g' | sed -e "s/$b//g">deps$deps
-                        cat /tmp/dep2.tmp | sed -e 's/:.*//g' | sed -e 's/#.*//g' | sed -e "s/'//g" | sed -e "s/.*\=(//g" | sed -e "s/)//g" | sed -e "s/(//g" | sed -e 's/"//g' | sed -e "s/,//g" | sed -e 's/[<,>,=].* / /g'>deps$deps
+                        cat /tmp/dep2.tmp | sed -e 's/:.*//g' | sed -e 's/#.*//g' | sed -e "s/'//g" | sed -e "s/.*\=(//g" | sed -e "s/)//g" | sed -e "s/(//g" | sed -e 's/"//g' | sed -e "s/,//g" >deps$deps #| sed -e 's/[<,>,=].* / /g'>deps$deps
                         deps=$(($deps+1))
-                        rm -r /tmp/dep1.tmp /tmp/dep2.tmp                
+                        #rm -r /tmp/dep1.tmp /tmp/dep2.tmp                
                         break
                 fi
         done
@@ -180,9 +180,10 @@ if [ "$1" == "-h" ]; then echo '
 tr=""
 for i in $(cat $1)
     do
-    if ! $(echo $tr | grep "$i" -q)
+    ii=$(echo $i | sed -e 's/[<,>,=].*//g')
+    if ! $(echo $tr | grep "$ii" -q)
         then
-        tr+=" "$i
+        tr+=" "$ii
     fi
 done
 echo $tr>$1
