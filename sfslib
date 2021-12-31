@@ -81,7 +81,7 @@ for j in $starts
                         #cat /tmp/dep2.tmp | sed -e 's/:.*//g' | sed -e 's/#.*//g' | sed -e "s/'//g" | sed -e "s/)//g" | sed -e "s/(//g" | sed -e 's/"//g' | sed -e "s/,//g" | sed -e 's/.*=//g' | sed -e "s/$b//g">deps$deps
                         cat /tmp/dep2.tmp | sed -e 's/:.*//g' | sed -e 's/#.*//g' | sed -e "s/'//g" | sed -e "s/.*\=(//g" | sed -e "s/)//g" | sed -e "s/(//g" | sed -e 's/"//g' | sed -e "s/,//g" >deps$deps #| sed -e 's/[<,>,=].* / /g'>deps$deps
                         deps=$(($deps+1))
-                        #rm -r /tmp/dep1.tmp /tmp/dep2.tmp                
+                        rm -r /tmp/dep1.tmp /tmp/dep2.tmp                
                         break
                 fi
         done
